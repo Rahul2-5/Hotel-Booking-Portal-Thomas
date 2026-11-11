@@ -1,0 +1,25 @@
+# Java and Maven build output
+target/
+*.class
+*.log
+
+# Node and Vite build output
+node_modules/
+dist/
+
+# Local environment files (keep the example)
+.env
+.env.*
+!.env.example
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Operating system files
+.DS_Store
+Thumbs.db

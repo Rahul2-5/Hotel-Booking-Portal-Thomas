@@ -1,9 +1,14 @@
-const moneyFormatter = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-});
+import { Link } from 'react-router';
+import { formatMoney } from '../utils/money.js';
 
 export default function HotelCard({ hotel }) {
+  const params = new URLSearchParams();
+  if (hotel.checkIn && hotel.checkOut) {
+    params.set('checkIn', hotel.checkIn);
+    params.set('checkOut', hotel.checkOut);
+  }
+  const query = params.toString();
+
   return (
     <article className="hotel-card" aria-labelledby={`hotel-${hotel.id}`}>
       <h3 id={`hotel-${hotel.id}`}>{hotel.name}</h3>
@@ -18,7 +23,7 @@ export default function HotelCard({ hotel }) {
 
       {hotel.roomTypes.map((room) => (
         <div className="room-option" key={room.id}>
-          <p><strong>{room.name}</strong> — {moneyFormatter.format(room.pricePerNight)} per night</p>
+          <p><strong>{room.name}</strong> — {formatMoney(room.pricePerNight)} per night</p>
           {room.availableRooms !== null && (
             <p>
               {room.availableRooms === 0
@@ -29,12 +34,13 @@ export default function HotelCard({ hotel }) {
           {room.totalAmount !== null && (
             <p>
               Total for {hotel.nights} night{hotel.nights === 1 ? '' : 's'}:
-              {' '}<strong>{moneyFormatter.format(room.totalAmount)}</strong>
+              {' '}<strong>{formatMoney(room.totalAmount)}</strong>
             </p>
           )}
         </div>
       ))}
       {hotel.roomTypes.length === 0 && <p>No room options are listed for this hotel.</p>}
+      <Link to={`/hotels/${hotel.id}${query ? `?${query}` : ''}`}>View details</Link>
     </article>
   );
 }

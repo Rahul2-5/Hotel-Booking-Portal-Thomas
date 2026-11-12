@@ -107,3 +107,42 @@ button:disabled {
 .room-option {
   border-top: 1px solid #ddd;
 }
+
+.booking-panel {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid #ccc;
+  background: white;
+  overflow-wrap: anywhere;
+}
+
+.booking-form {
+  display: grid;
+  gap: 16px;
+  max-width: 440px;
+}
+
+.booking-summary {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr);
+  gap: 8px 16px;
+}
+
+.booking-summary dt {
+  font-weight: 600;
+}
+
+.booking-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#rooms-heading + .hotel-card ~ .hotel-card {
+  margin-top: 16px;
+}

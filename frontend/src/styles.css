@@ -21,6 +21,13 @@ body {
   font-weight: 700;
 }
 
+.site-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+}
+
 main {
   max-width: 1000px;
   margin: 0 auto;

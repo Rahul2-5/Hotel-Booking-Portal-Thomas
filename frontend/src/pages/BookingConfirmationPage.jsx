@@ -32,7 +32,12 @@ export default function BookingConfirmationPage() {
         <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
         <dt>Status</dt><dd>{booking.status}</dd>
       </dl>
-      <Link to="/">Back to hotel search</Link>
+      <div className="booking-actions">
+        <Link to="/manage-booking" state={{ reference: booking.bookingReference, email: booking.guestEmail }}>
+          Manage this booking
+        </Link>
+        <Link to="/">Back to hotel search</Link>
+      </div>
     </section>
   );
 }

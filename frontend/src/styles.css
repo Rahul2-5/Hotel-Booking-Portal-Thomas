@@ -1,0 +1,109 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #222;
+  background: #f6f6f6;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.site-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #ccc;
+  background: white;
+}
+
+.site-header a {
+  color: #174a8b;
+  font-weight: 700;
+}
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #ccc;
+  background: white;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input,
+button {
+  min-height: 44px;
+  padding: 8px;
+  font: inherit;
+}
+
+input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #777;
+  border-radius: 3px;
+}
+
+.form-actions {
+  display: flex;
+  align-items: flex-start;
+  align-self: start;
+  gap: 8px;
+  padding-top: 30px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+}
+
+.field-error,
+.error-message {
+  color: #a52020;
+}
+
+.field-error {
+  font-size: 0.9rem;
+}
+
+.hotel-list {
+  display: grid;
+  gap: 16px;
+}
+
+.hotel-card {
+  padding: 16px;
+  border: 1px solid #ccc;
+  background: white;
+  overflow-wrap: anywhere;
+}
+
+.hotel-card h3 {
+  margin-top: 0;
+}
+
+.amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  padding-left: 20px;
+}
+
+.room-option {
+  border-top: 1px solid #ddd;
+}

@@ -1,169 +1,89 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { apiRequest } from '../api.js';
 import HotelCard from '../components/HotelCard.jsx';
-import HotelImage from '../components/HotelImage.jsx';
-import { getTodayDateString } from '../utils/dates.js';
-
-const emptyFilters = { location: '', checkIn: '', checkOut: '' };
+import { getTodayDateString, nextDate } from '../utils/dates.js';
 
 export default function HotelSearchPage() {
-  const [filters, setFilters] = useState({ ...emptyFilters });
-  const [search, setSearch] = useState({ ...emptyFilters });
+  const [params, setParams] = useSearchParams();
+  const query = params.toString();
+  const apiParams = new URLSearchParams();
+  for (const key of ['location', 'checkIn', 'checkOut']) if (params.get(key)) apiParams.set(key, params.get(key));
+  const searchQuery = apiParams.toString();
+  const [draft, setDraft] = useState({ location: params.get('location') || '', checkIn: params.get('checkIn') || '', checkOut: params.get('checkOut') || '' });
+  const [catalog, setCatalog] = useState([]);
   const [hotels, setHotels] = useState([]);
+  const [nights, setNights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const today = getTodayDateString();
-  const fieldErrors = error?.fieldErrors || {};
-
+  const [quoteError, setQuoteError] = useState('');
   useEffect(() => {
     const controller = new AbortController();
-
-    async function loadHotels() {
-      setLoading(true);
-      setError(null);
-      const params = new URLSearchParams();
-      for (const [name, value] of Object.entries(search)) {
-        if (value) {
-          params.set(name, value);
-        }
-      }
-
-      try {
-        const query = params.toString();
-        const data = await apiRequest(`/hotels${query ? `?${query}` : ''}`, {
-          signal: controller.signal,
-        });
-        if (!controller.signal.aborted) {
-          setHotels(data);
-        }
-      } catch (requestError) {
-        if (controller.signal.aborted || requestError.name === 'AbortError') {
-          return;
-        }
-        setHotels([]);
-        setError(requestError);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadHotels();
-    // Cancel the old request when a new search starts or the page unmounts.
+    apiRequest('/hotels', { signal: controller.signal }).then(setCatalog).catch(e => { if (!controller.signal.aborted) setError(e); });
     return () => controller.abort();
-  }, [search]);
-
-  function handleChange(event) {
-    const { name, value } = event.target;
-    setFilters((current) => ({ ...current, [name]: value }));
+  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    const values = new URLSearchParams(searchQuery);
+    setDraft({ location: values.get('location') || '', checkIn: values.get('checkIn') || '', checkOut: values.get('checkOut') || '' });
+    const apiQuery = new URLSearchParams();
+    for (const key of ['location', 'checkIn', 'checkOut']) if (values.get(key)) apiQuery.set(key, values.get(key));
+    setLoading(true); setError(null);
+    apiRequest(`/hotels?${apiQuery}`, { signal: controller.signal }).then(data => { if (!controller.signal.aborted) setHotels(data); })
+      .catch(e => { if (!controller.signal.aborted) { setError(e); setHotels([]); } })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [searchQuery]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setNights(null); setQuoteError('');
+    if (draft.checkIn && draft.checkOut && draft.checkOut > draft.checkIn && draft.checkIn >= getTodayDateString()) {
+      const timer = setTimeout(() => {
+        const dates = new URLSearchParams({ checkIn: draft.checkIn, checkOut: draft.checkOut });
+        // Nights come from the existing server quote, not a browser calculation.
+        apiRequest(`/hotels?${dates}`, { signal: controller.signal }).then(data => { if (!controller.signal.aborted) setNights(data[0]?.nights ?? null); })
+          .catch(e => { if (!controller.signal.aborted) setQuoteError(e.message); });
+      }, 250);
+      return () => { clearTimeout(timer); controller.abort(); };
+    }
+    return () => controller.abort();
+  }, [draft.checkIn, draft.checkOut]);
+  function edit(event) { setDraft(current => ({ ...current, [event.target.name]: event.target.value })); }
+  function search(event) {
+    event.preventDefault(); const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(draft)) { if (value.trim()) next.set(key, value.trim()); else next.delete(key); }
+    setParams(next);
   }
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    // Date inputs already provide YYYY-MM-DD. Send them without timezone conversion.
-    setSearch({ ...filters, location: filters.location.trim() });
-  }
-
-  function clearSearch() {
-    setFilters({ ...emptyFilters });
-    setSearch({ ...emptyFilters });
-  }
-
-  return (
-    <>
-      <section className="search-hero" aria-labelledby="search-heading">
-        <div className="page-intro">
-          <p className="eyebrow">A change of scene starts here</p>
-          <h1 id="search-heading">Find a hotel.<br /><em>Feel at home.</em></h1>
-          <p>From city breaks to quieter escapes, find a stay that suits you. Choose your dates, compare rooms and book with a clear total.</p>
-          <a className="hero-link" href="#hotel-search">Find your stay <span aria-hidden="true">↗</span></a>
-        </div>
-        <div className="hero-visual">
-          <HotelImage hotelId={3} className="hero-image" eager />
-          <p className="hero-caption"><span>Somewhere a little slower.</span><small>Inspiration from the Kerala backwaters</small></p>
-        </div>
-      </section>
-
-      <section className="search-panel" aria-labelledby="plan-stay-heading">
-      <div className="search-panel-heading">
-        <h2 id="plan-stay-heading">Plan your stay</h2>
-        <p>Search by location. Add both dates to see availability and stay totals.</p>
+  function filter(key, value) { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); setParams(next); }
+  const amenity = params.get('amenity') || '';
+  const sort = params.get('sort') || '';
+  const visible = hotels.filter(hotel => !amenity || hotel.amenities.includes(amenity));
+  // Compare the first listed room price, without inventing a hotel price or total.
+  if (sort) visible.sort((a, b) => {
+    if (!a.roomTypes.length) return b.roomTypes.length ? 1 : 0;
+    if (!b.roomTypes.length) return -1;
+    return (Number(a.roomTypes[0].pricePerNight) - Number(b.roomTypes[0].pricePerNight)) * (sort === 'desc' ? -1 : 1);
+  });
+  const fields = error?.fieldErrors || {};
+  return <>
+    <p className="eyebrow">Your next change of scene</p><h1>Find your next stay</h1>
+    <p className="muted">Choose a city and your dates. Compare rooms with totals calculated for your stay.</p>
+    <form className="search-form" onSubmit={search}>
+      <div className="form-field"><label htmlFor="location">Location</label><input id="location" list="locations" name="location" value={draft.location} onChange={edit} placeholder="Where are you heading?" /><datalist id="locations">{[...new Set(catalog.map(h => h.location))].map(city => <option key={city} value={city} />)}</datalist></div>
+      {['checkIn', 'checkOut'].map(key => <div className="form-field" key={key}><label htmlFor={key}>{key === 'checkIn' ? 'Check-in' : 'Check-out'}</label><input id={key} name={key} type="date" min={key === 'checkIn' ? getTodayDateString() : nextDate(draft.checkIn)} value={draft[key]} onChange={edit} aria-invalid={Boolean(fields[key])} aria-describedby={fields[key] ? `${key}-error` : undefined} />{fields[key] && <span id={`${key}-error`} className="field-error">{fields[key]}</span>}</div>)}
+      <button type="submit" disabled={loading}>{loading ? 'Searching…' : 'Search'}</button>
+      <p className="search-hint" role="status">{nights != null ? `${nights} night${nights === 1 ? '' : 's'}` : 'Add both dates to see nights and availability.'}</p>
+    </form>
+    {quoteError && <p className="error-message" role="alert">{quoteError}</p>}
+    {error && <p className="error-message" role="alert">{error.message}</p>}
+    <section className="results-section" aria-labelledby="results-heading" aria-busy={loading}>
+      <div className="section-heading"><div><h2 id="results-heading">Explore hotels</h2><p role="status">{loading ? 'Loading hotels…' : `${visible.length} hotels found.`}</p></div>
+        <div className="result-controls"><div className="form-field"><label htmlFor="amenity">Filter by amenity</label><select id="amenity" value={amenity} onChange={e => filter('amenity', e.target.value)}><option value="">All amenities</option>{[...new Set(catalog.flatMap(h => h.amenities))].sort().map(item => <option key={item}>{item}</option>)}</select></div>
+        <div className="form-field"><label htmlFor="sort">Sort by price</label><select id="sort" value={sort} onChange={e => filter('sort', e.target.value)}><option value="">Recommended order</option><option value="asc">Low to high</option><option value="desc">High to low</option></select></div></div>
       </div>
-      <form id="hotel-search" className="search-form" onSubmit={handleSubmit}>
-        <div className="form-field">
-          <label htmlFor="location">Location</label>
-          <input
-            id="location"
-            name="location"
-            value={filters.location}
-            onChange={handleChange}
-            placeholder="e.g. Mumbai"
-            aria-invalid={Boolean(fieldErrors.location)}
-            aria-describedby={fieldErrors.location ? 'location-error' : undefined}
-          />
-          {fieldErrors.location && <span className="field-error" id="location-error">{fieldErrors.location}</span>}
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="checkIn">Check-in</label>
-          <input
-            id="checkIn"
-            name="checkIn"
-            type="date"
-            value={filters.checkIn}
-            min={today}
-            onChange={handleChange}
-            aria-invalid={Boolean(fieldErrors.checkIn)}
-            aria-describedby={fieldErrors.checkIn ? 'checkIn-error' : undefined}
-          />
-          {fieldErrors.checkIn && <span className="field-error" id="checkIn-error">{fieldErrors.checkIn}</span>}
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="checkOut">Check-out</label>
-          <input
-            id="checkOut"
-            name="checkOut"
-            type="date"
-            value={filters.checkOut}
-            min={filters.checkIn || today}
-            onChange={handleChange}
-            aria-invalid={Boolean(fieldErrors.checkOut)}
-            aria-describedby={fieldErrors.checkOut ? 'checkOut-error' : undefined}
-          />
-          {fieldErrors.checkOut && <span className="field-error" id="checkOut-error">{fieldErrors.checkOut}</span>}
-        </div>
-
-        <div className="form-actions">
-          <button type="submit" disabled={loading}>{loading ? 'Searching…' : 'Search'}</button>
-          <button className="button-secondary" type="button" onClick={clearSearch}>Clear</button>
-        </div>
-      </form>
-      </section>
-
-      {error && <p className="error-message" role="alert">{error.message}</p>}
-
-      <section className="results-section" aria-labelledby="results-heading" aria-busy={loading}>
-        <div className="section-heading">
-          <div><p className="eyebrow">Find your kind of getaway</p><h2 id="results-heading">Explore our hotels</h2></div>
-          <p role="status">
-            {loading
-              ? 'Loading hotels…'
-              : error
-                ? 'Search could not be completed.'
-                : `${hotels.length} hotel${hotels.length === 1 ? '' : 's'} found.`}
-          </p>
-        </div>
-        {!loading && !error && hotels.length === 0 && (
-          <p>No hotels match this location. Try another location or clear the search.</p>
-        )}
-        {!loading && !error && (
-          <div className="hotel-list">
-            {hotels.map((hotel) => <HotelCard key={hotel.id} hotel={hotel} />)}
-          </div>
-        )}
-      </section>
-    </>
-  );
+      {sort && <p className="muted">Sorted by the nightly price of each hotel's first listed room.</p>}
+      {!loading && !error && <div className="hotel-list">{visible.map(h => <HotelCard key={h.id} hotel={h} search={query} />)}</div>}
+      {!loading && !error && visible.length === 0 && <p>No hotels match. Try another location or amenity.</p>}
+    </section>
+  </>;
 }

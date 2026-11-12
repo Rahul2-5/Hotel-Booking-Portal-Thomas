@@ -1,30 +1,10 @@
-import { useState } from 'react';
-import { hotelImages } from '../data/hotelImages.js';
-
-export default function HotelImage({ hotelId, className = '', eager = false }) {
-  const photo = hotelImages[hotelId];
-  const [failed, setFailed] = useState(false);
-
-  return (
-    <figure className={`hotel-image ${className}`}>
-      {photo && !failed ? (
-        <img
-          src={`/images/hotels/${photo.file}-800.webp`}
-          srcSet={`/images/hotels/${photo.file}-800.webp 800w, /images/hotels/${photo.file}-1400.webp 1400w`}
-          sizes={className === 'detail-image' ? '(max-width: 640px) 100vw, 1120px' : '(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 560px'}
-          alt={photo.alt}
-          width={1400}
-          height={933}
-          style={{ objectPosition: photo.position || 'center' }}
-          loading={eager ? 'eager' : 'lazy'}
-          fetchPriority={eager ? 'high' : 'auto'}
-          decoding="async"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div className="image-fallback">Hotel photo unavailable</div>
-      )}
-      {photo && !failed && <figcaption>Illustrative photo</figcaption>}
-    </figure>
-  );
+// Optional owner-supplied photos are discovered at build time. No remote images.
+const photos = import.meta.glob('/public/hotels/*.{jpg,jpeg,png,webp,avif}', { eager: true, query: '?url', import: 'default' });
+export default function HotelImage({ hotelId, city = 'Your next stay', className = '' }) {
+  const photo = Object.entries(photos).find(([path]) => path.split('/').pop().split('.')[0] === String(hotelId));
+  return <div className={`hotel-cover cover-${Number(hotelId) % 3} ${className}`}>
+    {photo ? <img src={photo[1]} alt={`${city} hotel`} loading="lazy" width="800" height="450" /> : <>
+      <span className="cover-label">Discover</span><span className="cover-city">{city}</span>
+    </>}
+  </div>;
 }

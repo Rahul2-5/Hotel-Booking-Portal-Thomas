@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import BookingSteps from './BookingSteps.jsx';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ApiError, apiRequest } from '../api.js';
 import { formatMoney } from '../utils/money.js';
+import { scrollToSection } from '../utils/scrollToSection.js';
 
-export default function BookingForm({ hotel, room, onSoldOut }) {
+export default function BookingForm({ hotel, room, onSoldOut, onGuide, scrollRequest }) {
   const navigate = useNavigate();
   const [guest, setGuest] = useState({ guestName: '', guestEmail: '' });
   const [review, setReview] = useState(null);
@@ -11,6 +13,14 @@ export default function BookingForm({ hotel, room, onSoldOut }) {
   const [error, setError] = useState(null);
   const submitting = useRef(false);
   const fieldErrors = error?.fieldErrors || {};
+  const heading = useRef(null);
+
+  useEffect(() => {
+    scrollToSection(heading.current);
+    onGuide(review
+      ? 'Review your stay and total below. Confirm booking when you are ready.'
+      : 'Enter your name and email below, then select Review booking. Your room is booked only after confirmation.');
+  }, [review, onGuide, scrollRequest]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -84,7 +94,8 @@ export default function BookingForm({ hotel, room, onSoldOut }) {
 
   return (
     <section className="booking-panel" aria-labelledby="booking-heading">
-      <h2 id="booking-heading">{review ? 'Review your booking' : 'Guest details'}</h2>
+      <BookingSteps current={review ? 2 : 1} />
+      <h2 id="booking-heading" ref={heading} tabIndex={-1}>{review ? 'Review your booking' : 'Guest details'}</h2>
       {error && <p className="error-message" role="alert">{error.message}</p>}
 
       {review ? (

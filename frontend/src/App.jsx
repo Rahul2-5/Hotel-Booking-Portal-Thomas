@@ -14,7 +14,7 @@ export default function App() {
           <span className="brand-name">Hotel Booking Portal<small>Stays across India</small></span>
         </Link>
         <nav aria-label="Main navigation">
-          <NavLink to="/" end>Hotel search</NavLink>
+          <NavLink to="/" end>Find hotels</NavLink>
           <NavLink to="/manage-booking">Manage booking</NavLink>
         </nav>
       </header>

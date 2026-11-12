@@ -1,0 +1,45 @@
+@font-face { font-family: 'Plus Jakarta Sans'; src: url('/fonts/plus-jakarta-sans.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'Fraunces'; src: url('/fonts/fraunces.woff2') format('woff2'); font-weight: 400 600; font-display: swap; }
+:root {
+  --primary: #0F4C5C;
+  --primary-hover: #093946;
+  --primary-soft: #e7f0f2;
+  --accent: #F2A541;
+  --accent-hover: #e1942c;
+  --accent-soft: #fff0d9;
+  --page: #FAF7F2;
+  --surface: #ffffff;
+  --text: #1F2933;
+  --muted: #52606D;
+  --border: #d6dfe2;
+  --control-border: #73848c;
+  --success: #226044;
+  --success-soft: #eaf5ef;
+  --warning: #805100;
+  --warning-soft: #fff0d9;
+  --danger: #a52b32;
+  --danger-soft: #fff0f1;
+  --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-title: 'Fraunces', Georgia, serif;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-title: 40px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --scrim: rgb(0 0 0 / 45%);
+  --radius-card: 12px;
+  --radius-input: 8px;
+  --shadow: 0 4px 16px rgb(15 76 92 / 6%);
+  --shadow-hover: 0 8px 24px rgb(15 76 92 / 12%);
+  --motion-fast: 180ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}

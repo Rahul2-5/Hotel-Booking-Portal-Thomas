@@ -1,7 +1,14 @@
 export function getTodayDateString() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return localDateString(new Date());
+}
+
+function localDateString(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Used only for the input's minimum, never for money or API date conversion.
+export function nextDate(value) {
+  if (!value) return getTodayDateString();
+  const [year, month, day] = value.split('-').map(Number);
+  return localDateString(new Date(year, month - 1, day + 1));
 }

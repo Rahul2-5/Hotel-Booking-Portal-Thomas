@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { apiRequest } from '../api.js';
-import { getTodayDateString } from '../utils/dates.js';
+import { getTodayDateString, nextDate } from '../utils/dates.js';
 import { formatMoney } from '../utils/money.js';
 
 export default function DateChangeForm({ booking, onUpdated, onBusyChange, onClose }) {
@@ -64,7 +64,7 @@ export default function DateChangeForm({ booking, onUpdated, onBusyChange, onClo
         </div>
         <div className="form-field">
           <label htmlFor="change-checkOut">New check-out</label>
-          <input id="change-checkOut" name="checkOut" type="date" required min={dates.checkIn || today}
+          <input id="change-checkOut" name="checkOut" type="date" required min={nextDate(dates.checkIn)}
             value={dates.checkOut} onChange={handleChange} disabled={busy}
             aria-invalid={Boolean(fieldErrors.checkOut)}
             aria-describedby={fieldErrors.checkOut ? 'change-checkOut-error' : undefined} />

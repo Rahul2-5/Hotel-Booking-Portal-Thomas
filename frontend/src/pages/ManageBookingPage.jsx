@@ -1,3 +1,4 @@
+import CancelDialog from '../components/CancelDialog.jsx';
 import { useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { ApiError, apiRequest } from '../api.js';
@@ -10,11 +11,13 @@ export default function ManageBookingPage() {
     reference: state?.reference || '',
     email: state?.email || '',
   });
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [booking, setBooking] = useState(null);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
   const [operation, setOperation] = useState(null);
   const requestInFlight = useRef(false);
+  const cancelTrigger = useRef(null);
   const [dateChangeOpen, setDateChangeOpen] = useState(false);
   const [dateChangeBusy, setDateChangeBusy] = useState(false);
   const busy = operation !== null || dateChangeBusy;
@@ -63,7 +66,7 @@ export default function ManageBookingPage() {
 
   async function cancelBooking() {
     if (requestInFlight.current || !booking || booking.status === 'CANCELLED') return;
-    if (!window.confirm(`Cancel booking ${booking.bookingReference}? This will release the room.`)) return;
+
 
     requestInFlight.current = true;
     setOperation('cancel');
@@ -76,6 +79,7 @@ export default function ManageBookingPage() {
         body: JSON.stringify({ email: booking.guestEmail }),
       });
       setBooking(cancelled);
+      setCancelOpen(false);
       setMessage('Booking cancelled successfully.');
     } catch (requestError) {
       setError(requestError);
@@ -85,6 +89,7 @@ export default function ManageBookingPage() {
           const query = new URLSearchParams({ email: booking.guestEmail });
           const latest = await apiRequest(`/bookings/${encodeURIComponent(booking.bookingReference)}?${query}`);
           setBooking(latest);
+          setCancelOpen(false);
         } catch (refreshError) {
           setBooking(null);
           setError(refreshError);
@@ -130,6 +135,7 @@ export default function ManageBookingPage() {
       )}
       {message && <p className="success-message" role="status">{message}</p>}
 
+      {cancelOpen && booking && <CancelDialog reference={booking.bookingReference} busy={busy} returnFocus={cancelTrigger} onClose={() => setCancelOpen(false)} onConfirm={cancelBooking} error={error?.message} />}
       {booking && (
         <section className="booking-panel" aria-labelledby="managed-booking-heading">
           <h2 id="managed-booking-heading">Booking details</h2>
@@ -146,7 +152,7 @@ export default function ManageBookingPage() {
             <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
             <dt>Change fees charged</dt><dd id="change-fee-total">{formatMoney(booking.changeFeeTotal)}</dd>
             <dt>Amount due</dt><dd id="amount-due"><strong>{formatMoney(booking.amountDue)}</strong></dd>
-            <dt>Status</dt><dd id="managed-booking-status"><span className={`status-badge ${booking.status === 'CANCELLED' ? 'status-cancelled' : ''}`}>{booking.status}</span></dd>
+            <dt>Status</dt><dd id="managed-booking-status"><span className={`status-badge ${booking.status === 'CANCELLED' ? 'status-cancelled' : ''}`}>{booking.status === 'CONFIRMED' ? 'Confirmed' : 'Cancelled'}</span></dd>
             {booking.cancelledAt && <><dt>Cancelled at</dt><dd>{booking.cancelledAt.replace('T', ' ')}</dd></>}
           </dl>
           {booking.status === 'CANCELLED' ? (
@@ -155,7 +161,7 @@ export default function ManageBookingPage() {
             <>
               <div className="booking-actions">
                 <button type="button" disabled={busy} aria-expanded={dateChangeOpen} onClick={() => setDateChangeOpen(true)}>Change dates</button>
-                <button className="button-danger" type="button" disabled={busy} onClick={cancelBooking}>
+                <button ref={cancelTrigger} className="button-danger" type="button" disabled={busy} onClick={() => setCancelOpen(true)}>
                   {operation === 'cancel' ? 'Cancelling…' : 'Cancel booking'}
                 </button>
               </div>

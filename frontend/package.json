@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/utils/*.test.js"
   },
   "dependencies": {
+    "lucide-react": "1.72.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "7.18.5"

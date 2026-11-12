@@ -1,9 +1,16 @@
+import { useState } from 'react';
+import BookingSteps from '../components/BookingSteps.jsx';
 import { Link, useLocation } from 'react-router';
 import { formatMoney } from '../utils/money.js';
 
 export default function BookingConfirmationPage() {
   const { state } = useLocation();
   const booking = state?.booking;
+  const [copyMessage, setCopyMessage] = useState('');
+  async function copyReference() {
+    try { await navigator.clipboard.writeText(booking.bookingReference); setCopyMessage('Reference copied.'); }
+    catch { setCopyMessage('Copy was unavailable. Select the reference and copy it manually.'); }
+  }
 
   if (!booking) {
     return (
@@ -17,9 +24,10 @@ export default function BookingConfirmationPage() {
 
   return (
     <section className="booking-panel confirmation-panel">
-      <p className="eyebrow">Your stay is reserved</p>
+      <BookingSteps current={3} /><p className="eyebrow">Your stay is reserved</p>
       <h1>Booking confirmed</h1>
       <p>Your booking reference: <strong id="booking-reference">{booking.bookingReference}</strong></p>
+      <button type="button" className="button-secondary" onClick={copyReference}>Copy reference</button><p role="status">{copyMessage}</p>
       <p>Keep this reference and the email address used for your booking.</p>
       <dl className="booking-summary">
         <dt>Hotel</dt><dd>{booking.hotelName}</dd>

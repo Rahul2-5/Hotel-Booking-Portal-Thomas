@@ -36,6 +36,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(new ApiError(404, "NOT_FOUND", exception.getMessage(), Map.of()));
     }
 
+    @ExceptionHandler(SoldOutException.class)
+    public ResponseEntity<ApiError> handleSoldOut(SoldOutException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(409, "SOLD_OUT", exception.getMessage(), Map.of()));
+    }
+
     @Override
     protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException exception,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {

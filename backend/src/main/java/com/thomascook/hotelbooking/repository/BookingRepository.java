@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+    boolean existsByBookingReference(String bookingReference);
+
     @Query("""
             select count(b) from Booking b
             where b.roomType.id = :roomTypeId

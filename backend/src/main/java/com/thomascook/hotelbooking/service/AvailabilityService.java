@@ -16,6 +16,13 @@ public class AvailabilityService {
         this.bookingRepository = bookingRepository;
     }
 
+    public int getAvailableRoomsExcludingBooking(RoomType roomType, LocalDate checkIn,
+                                                  LocalDate checkOut, Long bookingId) {
+        long bookedRooms = bookingRepository.countOverlappingBookingsExcluding(
+                roomType.getId(), BookingStatus.CONFIRMED, checkIn, checkOut, bookingId);
+        return (int) Math.max(0, roomType.getTotalRooms() - bookedRooms);
+    }
+
     // The caller supplies validated dates. Checkout is exclusive, so adjacent stays do not overlap.
     public int getAvailableRooms(RoomType roomType, LocalDate checkIn, LocalDate checkOut) {
         long bookedRooms = bookingRepository.countOverlappingBookings(

@@ -49,13 +49,16 @@ class BookingServiceTest {
         when(roomTypeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(roomType));
         when(availabilityService.getAvailableRooms(roomType, checkIn, checkOut)).thenReturn(1);
         BookingService service = new BookingService(bookingRepository, roomTypeRepository,
-                availabilityService, new StayDateValidator());
+                availabilityService, new StayDateValidator(), new BigDecimal("500.00"));
 
         BookingResponse response = service.createBooking(new CreateBookingRequest(
                 1L, "Test Guest", "guest@example.com", checkIn, checkOut));
 
         assertThat(response.nights()).isEqualTo(3);
         assertThat(response.totalAmount()).isEqualByComparingTo("11999.85");
+        assertThat(response.changeFeeTotal()).isZero();
+        assertThat(response.dateChangeCount()).isZero();
+        assertThat(response.amountDue()).isEqualByComparingTo(response.totalAmount());
         ArgumentCaptor<Booking> savedBooking = ArgumentCaptor.forClass(Booking.class);
         verify(bookingRepository).save(savedBooking.capture());
         assertThat(savedBooking.getValue().getPricePerNight()).isEqualByComparingTo("3999.95");

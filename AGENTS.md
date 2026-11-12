@@ -112,7 +112,8 @@ DESIGN.md
 | `POST /api/bookings` | Create booking; 201 with reference and total |
 | `GET /api/bookings/{reference}?email=` | Retrieve booking |
 | `POST /api/bookings/{reference}/cancel` | Cancel booking; email in body |
-| `GET /api/hotels/{id}/alternative-dates?checkIn=&checkOut=` | Surprise feature |
+| `GET /api/bookings/{reference}/date-change-preview?email=&checkIn=&checkOut=` | Preview date change; returns available, nights, oldTotal, newTotal, difference, changeFee, netChange; changes nothing |
+| `PUT /api/bookings/{reference}/dates` | Change booking dates; email, checkIn, checkOut in body |
 
 ## Phases
 
@@ -171,12 +172,53 @@ Page to find a booking by reference + email, show its details and cancel it with
 confirmation prompt. Handle not found and already cancelled.
 Commit: `feat(frontend): retrieve and cancel booking`
 
-### Phase 9 — Surprise feature: alternative dates
-Backend: when the requested stay is sold out, return up to 3 nearest available stays of the
-same length for that hotel, searching up to 14 days before and after (never in the past).
-Reuse the availability logic. Frontend: on a sold-out hotel, show these as clickable
-suggestions that re-run the search. Add one test for it.
-Commit: `feat: alternative date suggestions when sold out`
+### Phase 9 — Surprise feature: change booking dates without cancelling
+A guest can move a CONFIRMED booking to new dates. The change is all-or-nothing: if the new
+dates are not available, the original booking stays exactly as it was.
+Backend, in one public @Transactional service method called from the controller:
+find booking by reference + email (404 if no match) -> reject if not CONFIRMED (409) ->
+validate the new dates with the normal rules -> lock the room_type row (PESSIMISTIC_WRITE) ->
+count overlapping CONFIRMED bookings for the new dates EXCLUDING this booking's own id ->
+if a room is free, update check_in / check_out and recalculate total_amount using the
+price_per_night already stored on the booking; otherwise return 409 and change nothing.
+Endpoints:
+- GET /api/bookings/{reference}/date-change-preview?email=&checkIn=&checkOut=
+  returns available (true/false), nights, oldTotal, newTotal, difference, changeFee, netChange. Changes nothing.
+- PUT /api/bookings/{reference}/dates   body: email, checkIn, checkOut
+  performs the change and returns the updated booking.
+Frontend: on the manage-booking page add "Change dates": two date inputs -> preview showing
+the new total and "you pay X more / X less" -> confirm button -> updated booking shown.
+Show a clear message when the new dates are sold out, and say the booking is unchanged.
+Tests: change to free dates succeeds and total is recalculated; extending a stay in a hotel
+with 1 room succeeds (own booking not counted); change to sold-out dates is rejected and the
+original dates and total are unchanged; a cancelled booking cannot be changed.
+Change fee. Calculated only on the backend from the server date:
+- the first successful date change for each booking is free, regardless of timing
+- later changes made 2 or more days before the booking's CURRENT check-in date: fee is 0
+- later changes made later than that: flat fee read from configuration
+  (`booking.change-fee=500.00` in application.properties, BigDecimal)
+Put the rule in one small pure method (currentCheckIn, today, configuredFee, successfulChanges -> fee).
+Schema: add `change_fee_total DECIMAL(10,2) NOT NULL DEFAULT 0` to `booking` in db/schema.sql
+and update the entity. Give the ALTER TABLE statement for the existing database:
+```sql
+ALTER TABLE booking ADD COLUMN change_fee_total DECIMAL(10,2) NOT NULL DEFAULT 0;
+```
+Also add `date_change_count INT NOT NULL DEFAULT 0` to the schema and entity. Increment it
+only after a successful actual date change, including free changes. Previews, failed changes
+and identical-date submissions do not consume the free allowance. Provide its ALTER TABLE
+statement for existing databases. Historical bookings with charged fees start with count 1.
+Each successful change adds its fee to `change_fee_total`. `total_amount` stays
+nights x price_per_night and never includes fees. Failed changes add no fee.
+The preview response also returns `changeFee` and `netChange` (difference + changeFee).
+Booking responses (create, retrieve, change) also return `changeFeeTotal` and `amountDue`
+(totalAmount + changeFeeTotal), plus `dateChangeCount`.
+Frontend: the preview shows the new total, the difference and the fee as separate lines, or
+"Free change" when the fee is 0. Use `netChange` for the "you pay X more / X less" message.
+The manage-booking page shows any fees already charged.
+Extra tests: the first change is free even 1 day before check-in; later changes exactly 2
+days before are free and 1 day before are charged; charged changes accumulate fees;
+failed or identical-date changes do not consume the first free change.
+Commit: `feat: change booking dates without cancelling`
 
 ### Phase 10 — Documentation
 README.md: prerequisites, database setup, step-by-step run instructions for backend and
@@ -187,6 +229,10 @@ Booking logic; Design decisions (with alternatives and trade-offs); Simultaneous
 Surprise feature (what, why, how); Limitations and improvements. Include assumptions,
 especially how overlapping stays are handled. Write a first draft from the actual code;
 I will rewrite it in my own words.
+The DESIGN.md "Surprise feature" section must describe changing booking dates without
+cancelling (what, why, how), including why the booking's own id is excluded from the
+availability check and why the stored price is reused. It must also explain the fee rule,
+why fees are stored separately from total_amount, and that no payment is processed.
 Commit: `docs: README and DESIGN write-up`
 
 ### Phase 11 — Final review

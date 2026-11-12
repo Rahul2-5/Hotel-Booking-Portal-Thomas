@@ -14,6 +14,20 @@ import java.util.Optional;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsByBookingReference(String bookingReference);
 
+    @Query("""
+            select count(b) from Booking b
+            where b.roomType.id = :roomTypeId
+              and b.status = :status
+              and b.id <> :excludedBookingId
+              and b.checkIn < :checkOut
+              and b.checkOut > :checkIn
+            """)
+    long countOverlappingBookingsExcluding(@Param("roomTypeId") Long roomTypeId,
+                                          @Param("status") BookingStatus status,
+                                          @Param("checkIn") LocalDate checkIn,
+                                          @Param("checkOut") LocalDate checkOut,
+                                          @Param("excludedBookingId") Long excludedBookingId);
+
     Optional<Booking> findByBookingReferenceAndGuestEmailIgnoreCase(String bookingReference, String guestEmail);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

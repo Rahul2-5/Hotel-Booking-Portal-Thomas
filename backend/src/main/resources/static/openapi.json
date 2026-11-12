@@ -3,7 +3,7 @@
   "info": {
     "title": "Hotel Booking Portal API",
     "version": "0.0.1",
-    "description": "API documentation for the implemented hotel browsing, booking creation, retrieval and cancellation endpoints. No authentication is required. Dates are plain YYYY-MM-DD strings, interpreted as LocalDate on the server. A stay includes check-in and excludes checkout. Examples use invented guests and sample hotel data; availability changes as bookings are created. This document is served at /openapi.json."
+    "description": "API documentation for the implemented hotel browsing, booking creation, retrieval, cancellation and date-change endpoints. No authentication is required. Dates are plain YYYY-MM-DD strings, interpreted as LocalDate on the server. A stay includes check-in and excludes checkout. Examples use invented guests and sample hotel data; availability changes as bookings are created. This document is served at /openapi.json."
   },
   "servers": [
     {
@@ -278,7 +278,10 @@
                       "pricePerNight": 3800,
                       "totalAmount": 7600,
                       "status": "CONFIRMED",
-                      "cancelledAt": null
+                      "cancelledAt": null,
+                      "changeFeeTotal": 0,
+                      "amountDue": 7600,
+                      "dateChangeCount": 0
                     }
                   }
                 }
@@ -357,7 +360,10 @@
                       "pricePerNight": 3800,
                       "totalAmount": 7600,
                       "status": "CONFIRMED",
-                      "cancelledAt": null
+                      "cancelledAt": null,
+                      "changeFeeTotal": 0,
+                      "amountDue": 7600,
+                      "dateChangeCount": 0
                     }
                   },
                   "cancelled": {
@@ -375,7 +381,10 @@
                       "pricePerNight": 3800,
                       "totalAmount": 7600,
                       "status": "CANCELLED",
-                      "cancelledAt": "2026-11-12T18:30:00"
+                      "cancelledAt": "2026-11-12T18:30:00",
+                      "changeFeeTotal": 0,
+                      "amountDue": 7600,
+                      "dateChangeCount": 0
                     }
                   }
                 }
@@ -449,7 +458,10 @@
                       "pricePerNight": 3800,
                       "totalAmount": 7600,
                       "status": "CANCELLED",
-                      "cancelledAt": "2026-11-12T18:30:00"
+                      "cancelledAt": "2026-11-12T18:30:00",
+                      "changeFeeTotal": 0,
+                      "amountDue": 7600,
+                      "dateChangeCount": 0
                     }
                   }
                 }
@@ -464,6 +476,179 @@
           },
           "409": {
             "$ref": "#/components/responses/AlreadyCancelled"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/bookings/{reference}/date-change-preview": {
+      "get": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Preview new dates without changing the booking",
+        "operationId": "previewDateChange",
+        "description": "Matches reference and email (404 otherwise), requires CONFIRMED (409 otherwise), and validates dates. Availability excludes this booking's own ID. The new total uses the price_per_night already stored on the booking. Returns available=false for sold-out dates. The preview changes nothing and does not reserve capacity. Fee uses the server date and the booking's CURRENT check-in: the first successful date change is always free; for later changes, at least 2 days away is free, otherwise booking.change-fee applies (default 500.00). Preview never adds fees.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BookingReference"
+          },
+          {
+            "$ref": "#/components/parameters/BookingEmail"
+          },
+          {
+            "name": "checkIn",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "checkOut",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only availability and price comparison.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DateChangePreview"
+                },
+                "example": {
+                  "available": true,
+                  "nights": 3,
+                  "oldTotal": 7600,
+                  "newTotal": 11400,
+                  "difference": 3800,
+                  "changeFee": 0,
+                  "netChange": 3800
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/BookingNotFound"
+          },
+          "409": {
+            "description": "Booking is not CONFIRMED. For PUT, also returned when new dates are sold out; no booking fields change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "soldOut": {
+                    "value": {
+                      "status": 409,
+                      "code": "SOLD_OUT",
+                      "message": "The new dates are sold out. Your booking is unchanged.",
+                      "fieldErrors": {}
+                    }
+                  },
+                  "notConfirmed": {
+                    "value": {
+                      "status": 409,
+                      "code": "BOOKING_NOT_CONFIRMED",
+                      "message": "Only confirmed bookings can have their dates changed.",
+                      "fieldErrors": {}
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/bookings/{reference}/dates": {
+      "put": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Change dates of a confirmed booking atomically",
+        "operationId": "changeDates",
+        "description": "Matches reference and email, rejects non-CONFIRMED bookings, validates dates, locks the booking and room-type rows, and rechecks confirmed overlapping bookings excluding this booking's ID. Only after availability succeeds are check_in, check_out and total_amount updated. Uses the booking's stored nightly price; reference, status and price remain unchanged. Sold-out changes return 409 and leave the original booking unchanged. Availability is rechecked even after a successful preview. Each successful change accumulates its fee in changeFeeTotal. totalAmount remains nights multiplied by the stored price; amountDue is totalAmount + changeFeeTotal. Failed changes add no fee. No payment is processed. The first actual date change is free. A successful actual change increments dateChangeCount even when free. Preview, rejected requests and identical-date submissions do not increase the count or charge a fee.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BookingReference"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DateChangeRequest"
+              },
+              "example": {
+                "email": "guest@example.com",
+                "checkIn": "2026-12-20",
+                "checkOut": "2026-12-23"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated booking, with the same reference and stored nightly price.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/BookingNotFound"
+          },
+          "409": {
+            "description": "Booking is not CONFIRMED. For PUT, also returned when new dates are sold out; no booking fields change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "soldOut": {
+                    "value": {
+                      "status": 409,
+                      "code": "SOLD_OUT",
+                      "message": "The new dates are sold out. Your booking is unchanged.",
+                      "fieldErrors": {}
+                    }
+                  },
+                  "notConfirmed": {
+                    "value": {
+                      "status": 409,
+                      "code": "BOOKING_NOT_CONFIRMED",
+                      "message": "Only confirmed bookings can have their dates changed.",
+                      "fieldErrors": {}
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -710,7 +895,10 @@
           "pricePerNight",
           "totalAmount",
           "status",
-          "cancelledAt"
+          "cancelledAt",
+          "changeFeeTotal",
+          "amountDue",
+          "dateChangeCount"
         ],
         "properties": {
           "bookingReference": {
@@ -781,6 +969,18 @@
             "nullable": true,
             "description": "Cancellation timestamp in server-local time without a timezone offset. Null while CONFIRMED.",
             "example": "2026-11-12T18:30:00"
+          },
+          "changeFeeTotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "amountDue": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "dateChangeCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Successful actual date changes. Zero means the first free change is still available."
           }
         }
       },
@@ -834,6 +1034,72 @@
             "maxLength": 150,
             "description": "Guest email used when booking. Surrounding whitespace is trimmed and matching is case-insensitive.",
             "example": "guest@example.com"
+          }
+        }
+      },
+      "DateChangeRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "checkIn",
+          "checkOut"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150
+          },
+          "checkIn": {
+            "type": "string",
+            "format": "date",
+            "description": "New check-in; cannot be before the server date."
+          },
+          "checkOut": {
+            "type": "string",
+            "format": "date",
+            "description": "Exclusive checkout; must be after check-in."
+          }
+        }
+      },
+      "DateChangePreview": {
+        "type": "object",
+        "required": [
+          "available",
+          "nights",
+          "oldTotal",
+          "newTotal",
+          "difference",
+          "changeFee",
+          "netChange"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "nights": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "oldTotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "newTotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "difference": {
+            "type": "number",
+            "multipleOf": 0.01,
+            "description": "newTotal minus oldTotal. Positive means more, negative means less; calculated on the backend."
+          },
+          "changeFee": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "netChange": {
+            "type": "number",
+            "multipleOf": 0.01,
+            "description": "difference + changeFee, calculated on the backend. May be negative."
           }
         }
       }

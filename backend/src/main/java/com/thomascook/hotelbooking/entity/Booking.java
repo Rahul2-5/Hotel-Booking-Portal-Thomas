@@ -38,6 +38,12 @@ public class Booking {
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "change_fee_total", nullable = false, precision = 10, scale = 2)
+    private BigDecimal changeFeeTotal = new BigDecimal("0.00");
+
+    @Column(name = "date_change_count", nullable = false)
+    private int dateChangeCount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "ENUM('CONFIRMED', 'CANCELLED')")
     private BookingStatus status = BookingStatus.CONFIRMED;
@@ -121,6 +127,22 @@ public class Booking {
 
     public BookingStatus getStatus() {
         return status;
+    }
+
+    public BigDecimal getChangeFeeTotal() {
+        return changeFeeTotal;
+    }
+
+    public int getDateChangeCount() {
+        return dateChangeCount;
+    }
+
+    public void setDateChangeCount(int dateChangeCount) {
+        this.dateChangeCount = dateChangeCount;
+    }
+
+    public void setChangeFeeTotal(BigDecimal changeFeeTotal) {
+        this.changeFeeTotal = changeFeeTotal;
     }
 
     public void setStatus(BookingStatus status) {

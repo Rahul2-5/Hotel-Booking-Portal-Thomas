@@ -2,6 +2,9 @@ package com.thomascook.hotelbooking.service;
 
 import com.thomascook.hotelbooking.dto.BookingResponse;
 import com.thomascook.hotelbooking.dto.CreateBookingRequest;
+import com.thomascook.hotelbooking.dto.DateChangeRequest;
+import com.thomascook.hotelbooking.dto.DateChangePreview;
+import com.thomascook.hotelbooking.exception.DateChangeNotAllowedException;
 import com.thomascook.hotelbooking.entity.Booking;
 import com.thomascook.hotelbooking.entity.BookingStatus;
 import com.thomascook.hotelbooking.entity.RoomType;
@@ -12,11 +15,13 @@ import com.thomascook.hotelbooking.exception.SoldOutException;
 import com.thomascook.hotelbooking.repository.BookingRepository;
 import com.thomascook.hotelbooking.repository.RoomTypeRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Map;
@@ -31,15 +36,18 @@ public class BookingService {
     private final RoomTypeRepository roomTypeRepository;
     private final AvailabilityService availabilityService;
     private final StayDateValidator dateValidator;
+    private final BigDecimal configuredChangeFee;
 
     public BookingService(BookingRepository bookingRepository,
                           RoomTypeRepository roomTypeRepository,
                           AvailabilityService availabilityService,
-                          StayDateValidator dateValidator) {
+                          StayDateValidator dateValidator,
+                          @Value("${booking.change-fee}") BigDecimal configuredChangeFee) {
         this.bookingRepository = bookingRepository;
         this.roomTypeRepository = roomTypeRepository;
         this.availabilityService = availabilityService;
         this.dateValidator = dateValidator;
+        this.configuredChangeFee = configuredChangeFee;
     }
 
     // The controller calls this public method through Spring's transaction proxy.
@@ -102,6 +110,70 @@ public class BookingService {
         return toResponse(booking);
     }
 
+    @Transactional(readOnly = true)
+    public DateChangePreview previewDateChange(String reference, DateChangeRequest request) {
+        Booking booking = bookingRepository.findByBookingReferenceAndGuestEmailIgnoreCase(
+                        reference.trim().toUpperCase(Locale.ROOT), request.email())
+                .orElseThrow(() -> new NotFoundException("Booking not found."));
+        validateDateChange(booking, request);
+        return calculateDateChange(booking, booking.getRoomType(), request);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public BookingResponse changeDates(String reference, DateChangeRequest request) {
+        // Lock the booking too, so cancellation and another date change cannot race on this booking.
+        Booking booking = bookingRepository.findByReferenceAndEmailForUpdate(
+                        reference.trim().toUpperCase(Locale.ROOT), request.email())
+                .orElseThrow(() -> new NotFoundException("Booking not found."));
+        validateDateChange(booking, request);
+        RoomType roomType = roomTypeRepository.findByIdForUpdate(booking.getRoomType().getId())
+                .orElseThrow(() -> new NotFoundException("Room type not found."));
+        DateChangePreview preview = calculateDateChange(booking, roomType, request);
+        if (!preview.available()) {
+            throw new SoldOutException("The new dates are sold out. Your booking is unchanged.");
+        }
+
+        // Submitting identical dates is a no-op and does not consume the first free change.
+        if (booking.getCheckIn().equals(request.checkIn()) && booking.getCheckOut().equals(request.checkOut())) {
+            return toResponse(booking);
+        }
+        BigDecimal accumulatedFees = booking.getChangeFeeTotal().add(preview.changeFee());
+        if (accumulatedFees.compareTo(MAX_TOTAL_AMOUNT) > 0) {
+            throw new RequestValidationException(Map.of("checkOut", "Accumulated change fees exceed the supported amount."));
+        }
+        // No booking fields change until all checks have passed. JPA saves at transaction commit.
+        booking.setCheckIn(request.checkIn());
+        booking.setCheckOut(request.checkOut());
+        booking.setTotalAmount(preview.newTotal());
+        booking.setChangeFeeTotal(accumulatedFees);
+        booking.setDateChangeCount(booking.getDateChangeCount() + 1);
+        return toResponse(booking);
+    }
+
+    private void validateDateChange(Booking booking, DateChangeRequest request) {
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new DateChangeNotAllowedException();
+        }
+        dateValidator.validateOptionalDates(request.checkIn(), request.checkOut());
+    }
+
+    private DateChangePreview calculateDateChange(Booking booking, RoomType roomType, DateChangeRequest request) {
+        long nights = ChronoUnit.DAYS.between(request.checkIn(), request.checkOut());
+        BigDecimal newTotal = booking.getPricePerNight().multiply(BigDecimal.valueOf(nights));
+        if (newTotal.compareTo(MAX_TOTAL_AMOUNT) > 0) {
+            throw new RequestValidationException(Map.of(
+                    "checkOut", "The stay total exceeds the maximum supported amount. Choose a shorter stay."));
+        }
+        boolean available = availabilityService.getAvailableRoomsExcludingBooking(
+                roomType, request.checkIn(), request.checkOut(), booking.getId()) > 0;
+        BigDecimal difference = newTotal.subtract(booking.getTotalAmount());
+        boolean sameDates = booking.getCheckIn().equals(request.checkIn()) && booking.getCheckOut().equals(request.checkOut());
+        BigDecimal changeFee = sameDates ? BigDecimal.ZERO : ChangeFeePolicy.calculate(
+                booking.getCheckIn(), LocalDate.now(), configuredChangeFee, booking.getDateChangeCount());
+        return new DateChangePreview(available, nights, booking.getTotalAmount(), newTotal,
+                difference, changeFee, difference.add(changeFee));
+    }
+
     private BookingResponse toResponse(Booking booking) {
         RoomType roomType = booking.getRoomType();
         long nights = ChronoUnit.DAYS.between(booking.getCheckIn(), booking.getCheckOut());
@@ -109,7 +181,8 @@ public class BookingService {
                 roomType.getHotel().getName(), roomType.getId(), roomType.getName(),
                 booking.getGuestName(), booking.getGuestEmail(), booking.getCheckIn(), booking.getCheckOut(),
                 nights, booking.getPricePerNight(), booking.getTotalAmount(), booking.getStatus(),
-                booking.getCancelledAt());
+                booking.getCancelledAt(), booking.getChangeFeeTotal(),
+                booking.getTotalAmount().add(booking.getChangeFeeTotal()), booking.getDateChangeCount());
     }
 
     private String generateUniqueReference() {

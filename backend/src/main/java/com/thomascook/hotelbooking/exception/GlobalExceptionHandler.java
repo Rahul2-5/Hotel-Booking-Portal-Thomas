@@ -42,6 +42,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(new ApiError(409, "SOLD_OUT", exception.getMessage(), Map.of()));
     }
 
+    @ExceptionHandler(DateChangeNotAllowedException.class)
+    public ResponseEntity<ApiError> handleDateChangeNotAllowed(DateChangeNotAllowedException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(409, "BOOKING_NOT_CONFIRMED", exception.getMessage(), Map.of()));
+    }
+
     @ExceptionHandler(AlreadyCancelledException.class)
     public ResponseEntity<ApiError> handleAlreadyCancelled(AlreadyCancelledException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

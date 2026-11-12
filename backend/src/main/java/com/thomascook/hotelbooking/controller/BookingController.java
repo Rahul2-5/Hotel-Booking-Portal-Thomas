@@ -3,6 +3,8 @@ package com.thomascook.hotelbooking.controller;
 import com.thomascook.hotelbooking.dto.BookingResponse;
 import com.thomascook.hotelbooking.dto.BookingEmailRequest;
 import com.thomascook.hotelbooking.dto.CreateBookingRequest;
+import com.thomascook.hotelbooking.dto.DateChangeRequest;
+import com.thomascook.hotelbooking.dto.DateChangePreview;
 import com.thomascook.hotelbooking.service.BookingService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +37,18 @@ public class BookingController {
     public BookingResponse getBooking(@PathVariable("reference") String reference,
                                       @Valid @ModelAttribute BookingEmailRequest request) {
         return bookingService.getBooking(reference, request.email());
+    }
+
+    @GetMapping("/{reference}/date-change-preview")
+    public DateChangePreview previewDateChange(@PathVariable("reference") String reference,
+                                               @Valid @ModelAttribute DateChangeRequest request) {
+        return bookingService.previewDateChange(reference, request);
+    }
+
+    @PutMapping("/{reference}/dates")
+    public BookingResponse changeDates(@PathVariable("reference") String reference,
+                                        @Valid @RequestBody DateChangeRequest request) {
+        return bookingService.changeDates(reference, request);
     }
 
     @PostMapping("/{reference}/cancel")

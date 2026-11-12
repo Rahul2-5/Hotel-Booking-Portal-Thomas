@@ -3,6 +3,10 @@ package com.thomascook.hotelbooking.exception;
 public class SoldOutException extends RuntimeException {
 
     public SoldOutException() {
-        super("No rooms are available for the selected dates.");
+        this("No rooms are available for the selected dates.");
+    }
+
+    public SoldOutException(String message) {
+        super(message);
     }
 }

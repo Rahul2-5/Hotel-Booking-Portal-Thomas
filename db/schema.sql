@@ -42,6 +42,8 @@ CREATE TABLE booking (
     check_out         DATE           NOT NULL,   -- exclusive: guest leaves this day, room is free for the next guest
     price_per_night   DECIMAL(10, 2) NOT NULL,   -- snapshot, so later price changes do not alter old bookings
     total_amount      DECIMAL(10, 2) NOT NULL,   -- nights x price_per_night, computed by the backend
+    change_fee_total  DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    date_change_count INT            NOT NULL DEFAULT 0,
     status            ENUM ('CONFIRMED', 'CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
     created_at        TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     cancelled_at      TIMESTAMP      NULL,

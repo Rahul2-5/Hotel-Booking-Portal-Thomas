@@ -20,6 +20,9 @@ public record BookingResponse(
         BigDecimal pricePerNight,
         BigDecimal totalAmount,
         BookingStatus status,
-        LocalDateTime cancelledAt
+        LocalDateTime cancelledAt,
+        BigDecimal changeFeeTotal,
+        BigDecimal amountDue,
+        int dateChangeCount
 ) {
 }

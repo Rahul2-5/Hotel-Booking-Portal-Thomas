@@ -30,6 +30,8 @@ export default function BookingConfirmationPage() {
         <dt>Nights</dt><dd>{booking.nights}</dd>
         <dt>Price per night</dt><dd>{formatMoney(booking.pricePerNight)}</dd>
         <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
+        <dt>Change fees</dt><dd>{formatMoney(booking.changeFeeTotal)}</dd>
+        <dt>Amount due</dt><dd><strong>{formatMoney(booking.amountDue)}</strong></dd>
         <dt>Status</dt><dd>{booking.status}</dd>
       </dl>
       <div className="booking-actions">

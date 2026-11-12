@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { ApiError, apiRequest } from '../api.js';
 import { formatMoney } from '../utils/money.js';
+import DateChangeForm from '../components/DateChangeForm.jsx';
 
 export default function ManageBookingPage() {
   const { state } = useLocation();
@@ -14,7 +15,9 @@ export default function ManageBookingPage() {
   const [message, setMessage] = useState('');
   const [operation, setOperation] = useState(null);
   const requestInFlight = useRef(false);
-  const busy = operation !== null;
+  const [dateChangeOpen, setDateChangeOpen] = useState(false);
+  const [dateChangeBusy, setDateChangeBusy] = useState(false);
+  const busy = operation !== null || dateChangeBusy;
   const fieldErrors = error?.fieldErrors || {};
 
   function handleChange(event) {
@@ -22,6 +25,7 @@ export default function ManageBookingPage() {
     setLookup((current) => ({ ...current, [name]: value }));
     // Edited credentials must be looked up again before showing a cancellable booking.
     setBooking(null);
+    setDateChangeOpen(false);
     setError(null);
     setMessage('');
   }
@@ -34,6 +38,7 @@ export default function ManageBookingPage() {
     setError(null);
     setMessage('');
     setBooking(null);
+    setDateChangeOpen(false);
     if (!reference) {
       setError(new ApiError(400, 'VALIDATION_ERROR', 'Please enter your booking reference.', {
         reference: 'Booking reference is required.',
@@ -138,15 +143,32 @@ export default function ManageBookingPage() {
             <dt>Nights</dt><dd>{booking.nights}</dd>
             <dt>Price per night</dt><dd>{formatMoney(booking.pricePerNight)}</dd>
             <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
+            <dt>Change fees charged</dt><dd id="change-fee-total">{formatMoney(booking.changeFeeTotal)}</dd>
+            <dt>Amount due</dt><dd id="amount-due"><strong>{formatMoney(booking.amountDue)}</strong></dd>
             <dt>Status</dt><dd id="managed-booking-status">{booking.status}</dd>
             {booking.cancelledAt && <><dt>Cancelled at</dt><dd>{booking.cancelledAt.replace('T', ' ')}</dd></>}
           </dl>
           {booking.status === 'CANCELLED' ? (
             <p>This booking is already cancelled.</p>
           ) : (
-            <button type="button" disabled={busy} onClick={cancelBooking}>
-              {operation === 'cancel' ? 'Cancelling…' : 'Cancel booking'}
-            </button>
+            <>
+              <div className="booking-actions">
+                <button type="button" disabled={busy} onClick={() => setDateChangeOpen(true)}>Change dates</button>
+                <button type="button" disabled={busy} onClick={cancelBooking}>
+                  {operation === 'cancel' ? 'Cancelling…' : 'Cancel booking'}
+                </button>
+              </div>
+              {dateChangeOpen && (
+                <DateChangeForm key={`${booking.bookingReference}-${booking.checkIn}-${booking.checkOut}`}
+                  booking={booking} onBusyChange={setDateChangeBusy} onClose={() => setDateChangeOpen(false)}
+                  onUpdated={(updated) => {
+                    setBooking(updated);
+                    setDateChangeOpen(false);
+                    setError(null);
+                    setMessage('Booking dates updated successfully.');
+                  }} />
+              )}
+            </>
           )}
         </section>
       )}

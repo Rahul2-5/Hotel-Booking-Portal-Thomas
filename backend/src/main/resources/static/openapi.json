@@ -3,7 +3,7 @@
   "info": {
     "title": "Hotel Booking Portal API",
     "version": "0.0.1",
-    "description": "API documentation for the implemented hotel browsing and booking creation endpoints. No authentication is required. Dates are plain YYYY-MM-DD strings, interpreted as LocalDate on the server. A stay includes check-in and excludes checkout. Examples use invented guests and sample hotel data; availability changes as bookings are created. This document is served at /openapi.json."
+    "description": "API documentation for the implemented hotel browsing, booking creation, retrieval and cancellation endpoints. No authentication is required. Dates are plain YYYY-MM-DD strings, interpreted as LocalDate on the server. A stay includes check-in and excludes checkout. Examples use invented guests and sample hotel data; availability changes as bookings are created. This document is served at /openapi.json."
   },
   "servers": [
     {
@@ -18,7 +18,7 @@
     },
     {
       "name": "Bookings",
-      "description": "Create one-room bookings."
+      "description": "Create, retrieve and cancel one-room bookings using the booking reference and guest email."
     }
   ],
   "paths": {
@@ -277,7 +277,8 @@
                       "nights": 2,
                       "pricePerNight": 3800,
                       "totalAmount": 7600,
-                      "status": "CONFIRMED"
+                      "status": "CONFIRMED",
+                      "cancelledAt": null
                     }
                   }
                 }
@@ -309,6 +310,160 @@
           },
           "409": {
             "$ref": "#/components/responses/SoldOut"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/bookings/{reference}": {
+      "get": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Retrieve a booking by reference and email",
+        "operationId": "getBooking",
+        "description": "Returns confirmed or cancelled bookings. Both the reference and guest email must match. An unknown reference and a nonmatching email return the same HTTP 404 without revealing whether the reference exists. Prices come from the booking snapshot, not current room prices.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BookingReference"
+          },
+          {
+            "$ref": "#/components/parameters/BookingEmail"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching booking, including its current status and cancellation timestamp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponse"
+                },
+                "examples": {
+                  "confirmed": {
+                    "value": {
+                      "bookingReference": "HB-A1B2C3D4E5F60718",
+                      "hotelId": 4,
+                      "hotelName": "Hilltop Haven",
+                      "roomTypeId": 4,
+                      "roomTypeName": "Deluxe Room",
+                      "guestName": "Sample Guest",
+                      "guestEmail": "guest@example.com",
+                      "checkIn": "2026-12-20",
+                      "checkOut": "2026-12-22",
+                      "nights": 2,
+                      "pricePerNight": 3800,
+                      "totalAmount": 7600,
+                      "status": "CONFIRMED",
+                      "cancelledAt": null
+                    }
+                  },
+                  "cancelled": {
+                    "value": {
+                      "bookingReference": "HB-A1B2C3D4E5F60718",
+                      "hotelId": 4,
+                      "hotelName": "Hilltop Haven",
+                      "roomTypeId": 4,
+                      "roomTypeName": "Deluxe Room",
+                      "guestName": "Sample Guest",
+                      "guestEmail": "guest@example.com",
+                      "checkIn": "2026-12-20",
+                      "checkOut": "2026-12-22",
+                      "nights": 2,
+                      "pricePerNight": 3800,
+                      "totalAmount": 7600,
+                      "status": "CANCELLED",
+                      "cancelledAt": "2026-11-12T18:30:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/BookingNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/bookings/{reference}/cancel": {
+      "post": {
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Cancel a booking by reference and email",
+        "operationId": "cancelBooking",
+        "description": "Locks the matching booking row inside a transaction, changes its status to CANCELLED and records cancelledAt. The booking is retained in the database. Only CONFIRMED bookings count toward availability, so committing cancellation releases the room. Returns the updated booking with HTTP 200. A second cancellation returns HTTP 409. Simultaneous cancellation requests are serialized by the booking-row lock. Wrong email returns 404, including for an already cancelled booking.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BookingReference"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The email used when creating this booking.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingEmailRequest"
+              },
+              "examples": {
+                "guestEmail": {
+                  "value": {
+                    "email": "guest@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking cancelled and availability released.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingResponse"
+                },
+                "examples": {
+                  "cancelledBooking": {
+                    "value": {
+                      "bookingReference": "HB-A1B2C3D4E5F60718",
+                      "hotelId": 4,
+                      "hotelName": "Hilltop Haven",
+                      "roomTypeId": 4,
+                      "roomTypeName": "Deluxe Room",
+                      "guestName": "Sample Guest",
+                      "guestEmail": "guest@example.com",
+                      "checkIn": "2026-12-20",
+                      "checkOut": "2026-12-22",
+                      "nights": 2,
+                      "pricePerNight": 3800,
+                      "totalAmount": 7600,
+                      "status": "CANCELLED",
+                      "cancelledAt": "2026-11-12T18:30:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/BookingNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/AlreadyCancelled"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -361,6 +516,29 @@
           "format": "int64"
         },
         "example": 4
+      },
+      "BookingReference": {
+        "name": "reference",
+        "in": "path",
+        "required": true,
+        "description": "Booking reference returned by creation. Surrounding whitespace is trimmed and letters are normalized to uppercase. Unknown references return 404.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "HB-A1B2C3D4E5F60718"
+      },
+      "BookingEmail": {
+        "name": "email",
+        "in": "query",
+        "required": true,
+        "description": "Guest email used when booking. URL-encode the value, including any plus sign. Matching ignores case and surrounding whitespace. A nonmatching email returns the same 404 as an unknown reference.",
+        "schema": {
+          "type": "string",
+          "format": "email",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "example": "guest@example.com"
       }
     },
     "schemas": {
@@ -531,7 +709,8 @@
           "nights",
           "pricePerNight",
           "totalAmount",
-          "status"
+          "status",
+          "cancelledAt"
         ],
         "properties": {
           "bookingReference": {
@@ -592,9 +771,16 @@
           "status": {
             "type": "string",
             "enum": [
-              "CONFIRMED"
+              "CONFIRMED",
+              "CANCELLED"
             ],
-            "description": "A newly created booking is confirmed."
+            "description": "Current stored booking status. Creation returns CONFIRMED; a successful cancellation returns CANCELLED."
+          },
+          "cancelledAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cancellation timestamp in server-local time without a timezone offset. Null while CONFIRMED.",
+            "example": "2026-11-12T18:30:00"
           }
         }
       },
@@ -634,11 +820,27 @@
             "description": "Field names mapped to validation messages. Empty for errors without a field-specific message."
           }
         }
+      },
+      "BookingEmailRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Guest email used when booking. Surrounding whitespace is trimmed and matching is case-insensitive.",
+            "example": "guest@example.com"
+          }
+        }
       }
     },
     "responses": {
       "ValidationError": {
-        "description": "Invalid fields, missing paired dates, past check-in, checkout not after check-in, malformed dates or IDs, malformed JSON, or a booking total exceeding the database limit. Field-specific validation errors appear in fieldErrors; malformed JSON may have an empty fieldErrors object.",
+        "description": "Invalid fields, missing or malformed email, missing paired dates, past check-in, checkout not after check-in, malformed dates or IDs, malformed JSON, or a booking total exceeding the database limit. Field-specific validation errors appear in fieldErrors; malformed JSON may have an empty fieldErrors object.",
         "content": {
           "application/json": {
             "schema": {
@@ -712,6 +914,46 @@
                   "status": 500,
                   "code": "INTERNAL_ERROR",
                   "message": "An unexpected error occurred.",
+                  "fieldErrors": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "BookingNotFound": {
+        "description": "Reference and email do not match a booking. The same response is used for an unknown reference and a wrong email.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "notFound": {
+                "value": {
+                  "status": 404,
+                  "code": "NOT_FOUND",
+                  "message": "Booking not found.",
+                  "fieldErrors": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "AlreadyCancelled": {
+        "description": "This booking has already been cancelled. Its original cancellation timestamp is preserved.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "alreadyCancelled": {
+                "value": {
+                  "status": 409,
+                  "code": "ALREADY_CANCELLED",
+                  "message": "Booking is already cancelled.",
                   "fieldErrors": {}
                 }
               }

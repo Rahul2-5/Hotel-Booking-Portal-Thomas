@@ -42,6 +42,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(new ApiError(409, "SOLD_OUT", exception.getMessage(), Map.of()));
     }
 
+    @ExceptionHandler(AlreadyCancelledException.class)
+    public ResponseEntity<ApiError> handleAlreadyCancelled(AlreadyCancelledException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(409, "ALREADY_CANCELLED", exception.getMessage(), Map.of()));
+    }
+
     @Override
     protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException exception,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {

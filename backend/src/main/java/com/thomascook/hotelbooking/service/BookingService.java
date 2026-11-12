@@ -5,6 +5,7 @@ import com.thomascook.hotelbooking.dto.CreateBookingRequest;
 import com.thomascook.hotelbooking.entity.Booking;
 import com.thomascook.hotelbooking.entity.BookingStatus;
 import com.thomascook.hotelbooking.entity.RoomType;
+import com.thomascook.hotelbooking.exception.AlreadyCancelledException;
 import com.thomascook.hotelbooking.exception.NotFoundException;
 import com.thomascook.hotelbooking.exception.RequestValidationException;
 import com.thomascook.hotelbooking.exception.SoldOutException;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Map;
@@ -74,10 +76,40 @@ public class BookingService {
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
 
+        return toResponse(booking);
+    }
+
+    @Transactional(readOnly = true)
+    public BookingResponse getBooking(String reference, String email) {
+        Booking booking = bookingRepository.findByBookingReferenceAndGuestEmailIgnoreCase(
+                        reference.trim().toUpperCase(Locale.ROOT), email.trim())
+                .orElseThrow(() -> new NotFoundException("Booking not found."));
+        return toResponse(booking);
+    }
+
+    @Transactional
+    public BookingResponse cancelBooking(String reference, String email) {
+        Booking booking = bookingRepository.findByReferenceAndEmailForUpdate(
+                        reference.trim().toUpperCase(Locale.ROOT), email.trim())
+                .orElseThrow(() -> new NotFoundException("Booking not found."));
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new AlreadyCancelledException();
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(LocalDateTime.now());
+        // JPA saves the changes when this transaction commits. The booking row stays in the database.
+        return toResponse(booking);
+    }
+
+    private BookingResponse toResponse(Booking booking) {
+        RoomType roomType = booking.getRoomType();
+        long nights = ChronoUnit.DAYS.between(booking.getCheckIn(), booking.getCheckOut());
         return new BookingResponse(booking.getBookingReference(), roomType.getHotel().getId(),
                 roomType.getHotel().getName(), roomType.getId(), roomType.getName(),
                 booking.getGuestName(), booking.getGuestEmail(), booking.getCheckIn(), booking.getCheckOut(),
-                nights, booking.getPricePerNight(), booking.getTotalAmount(), booking.getStatus());
+                nights, booking.getPricePerNight(), booking.getTotalAmount(), booking.getStatus(),
+                booking.getCancelledAt());
     }
 
     private String generateUniqueReference() {

@@ -1,11 +1,15 @@
 package com.thomascook.hotelbooking.controller;
 
 import com.thomascook.hotelbooking.dto.BookingResponse;
+import com.thomascook.hotelbooking.dto.BookingEmailRequest;
 import com.thomascook.hotelbooking.dto.CreateBookingRequest;
 import com.thomascook.hotelbooking.service.BookingService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,5 +28,17 @@ public class BookingController {
     @PostMapping
     public ResponseEntity<BookingResponse> createBooking(@Valid @RequestBody CreateBookingRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.createBooking(request));
+    }
+
+    @GetMapping("/{reference}")
+    public BookingResponse getBooking(@PathVariable("reference") String reference,
+                                      @Valid @ModelAttribute BookingEmailRequest request) {
+        return bookingService.getBooking(reference, request.email());
+    }
+
+    @PostMapping("/{reference}/cancel")
+    public BookingResponse cancelBooking(@PathVariable("reference") String reference,
+                                         @Valid @RequestBody BookingEmailRequest request) {
+        return bookingService.cancelBooking(reference, request.email());
     }
 }

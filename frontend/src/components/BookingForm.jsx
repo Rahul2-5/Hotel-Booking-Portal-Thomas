@@ -102,7 +102,7 @@ export default function BookingForm({ hotel, room, onSoldOut }) {
           </dl>
           <p>Confirm below to create your booking.</p>
           <div className="booking-actions">
-            <button type="button" disabled={busy} onClick={() => setReview(null)}>Edit guest details</button>
+            <button className="button-secondary" type="button" disabled={busy} onClick={() => setReview(null)}>Edit guest details</button>
             <button type="button" disabled={busy} onClick={confirmBooking}>
               {busy ? 'Confirming…' : 'Confirm booking'}
             </button>

@@ -16,7 +16,8 @@ export default function BookingConfirmationPage() {
   }
 
   return (
-    <section className="booking-panel">
+    <section className="booking-panel confirmation-panel">
+      <p className="eyebrow">Your stay is reserved</p>
       <h1>Booking confirmed</h1>
       <p>Your booking reference: <strong id="booking-reference">{booking.bookingReference}</strong></p>
       <p>Keep this reference and the email address used for your booking.</p>
@@ -32,13 +33,13 @@ export default function BookingConfirmationPage() {
         <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
         <dt>Change fees</dt><dd>{formatMoney(booking.changeFeeTotal)}</dd>
         <dt>Amount due</dt><dd><strong>{formatMoney(booking.amountDue)}</strong></dd>
-        <dt>Status</dt><dd>{booking.status}</dd>
+        <dt>Status</dt><dd><span className="status-badge">{booking.status}</span></dd>
       </dl>
       <div className="booking-actions">
-        <Link to="/manage-booking" state={{ reference: booking.bookingReference, email: booking.guestEmail }}>
+        <Link className="button-link" to="/manage-booking" state={{ reference: booking.bookingReference, email: booking.guestEmail }}>
           Manage this booking
         </Link>
-        <Link to="/">Back to hotel search</Link>
+        <Link className="button-link button-secondary" to="/">Back to hotel search</Link>
       </div>
     </section>
   );

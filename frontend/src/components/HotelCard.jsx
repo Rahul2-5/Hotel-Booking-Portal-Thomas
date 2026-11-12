@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { formatMoney } from '../utils/money.js';
+import HotelImage from './HotelImage.jsx';
 
 export default function HotelCard({ hotel }) {
   const params = new URLSearchParams();
@@ -10,10 +11,12 @@ export default function HotelCard({ hotel }) {
   const query = params.toString();
 
   return (
-    <article className="hotel-card" aria-labelledby={`hotel-${hotel.id}`}>
+    <article className="hotel-card hotel-listing" aria-labelledby={`hotel-${hotel.id}`}>
+      <HotelImage hotelId={hotel.id} />
+      <div className="hotel-card-content">
+      <p className="hotel-location">{hotel.location}</p>
       <h3 id={`hotel-${hotel.id}`}>{hotel.name}</h3>
-      <p><strong>Location:</strong> {hotel.location}</p>
-      {hotel.description && <p>{hotel.description}</p>}
+      {hotel.description && <p className="hotel-description">{hotel.description}</p>}
 
       {hotel.amenities.length > 0 && (
         <ul className="amenities" aria-label="Amenities">
@@ -23,9 +26,9 @@ export default function HotelCard({ hotel }) {
 
       {hotel.roomTypes.map((room) => (
         <div className="room-option" key={room.id}>
-          <p><strong>{room.name}</strong> — {formatMoney(room.pricePerNight)} per night</p>
+          <p className="room-price"><strong>{room.name}</strong><span><b>{formatMoney(room.pricePerNight)}</b> <small>/ night</small></span></p>
           {room.availableRooms !== null && (
-            <p>
+            <p className={room.availableRooms === 0 ? 'availability-sold-out' : 'availability-note'}>
               {room.availableRooms === 0
                 ? 'Sold out for the selected dates.'
                 : `${room.availableRooms} room${room.availableRooms === 1 ? '' : 's'} available.`}
@@ -40,7 +43,8 @@ export default function HotelCard({ hotel }) {
         </div>
       ))}
       {hotel.roomTypes.length === 0 && <p>No room options are listed for this hotel.</p>}
-      <Link to={`/hotels/${hotel.id}${query ? `?${query}` : ''}`}>View details</Link>
+      <Link className="button-link card-action" to={`/hotels/${hotel.id}${query ? `?${query}` : ''}`}>View details <span aria-hidden="true">→</span></Link>
+      </div>
     </article>
   );
 }

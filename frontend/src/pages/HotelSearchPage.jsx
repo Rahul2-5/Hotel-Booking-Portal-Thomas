@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../api.js';
 import HotelCard from '../components/HotelCard.jsx';
+import HotelImage from '../components/HotelImage.jsx';
 import { getTodayDateString } from '../utils/dates.js';
 
 const emptyFilters = { location: '', checkIn: '', checkOut: '' };
@@ -71,10 +72,25 @@ export default function HotelSearchPage() {
 
   return (
     <>
-      <h1>Find a hotel</h1>
-      <p>Search by location. Add both dates to see availability and stay totals.</p>
+      <section className="search-hero" aria-labelledby="search-heading">
+        <div className="page-intro">
+          <p className="eyebrow">A change of scene starts here</p>
+          <h1 id="search-heading">Find a hotel.<br /><em>Feel at home.</em></h1>
+          <p>From city breaks to quieter escapes, find a stay that suits you. Choose your dates, compare rooms and book with a clear total.</p>
+          <a className="hero-link" href="#hotel-search">Find your stay <span aria-hidden="true">↗</span></a>
+        </div>
+        <div className="hero-visual">
+          <HotelImage hotelId={3} className="hero-image" eager />
+          <p className="hero-caption"><span>Somewhere a little slower.</span><small>Inspiration from the Kerala backwaters</small></p>
+        </div>
+      </section>
 
-      <form className="search-form" onSubmit={handleSubmit}>
+      <section className="search-panel" aria-labelledby="plan-stay-heading">
+      <div className="search-panel-heading">
+        <h2 id="plan-stay-heading">Plan your stay</h2>
+        <p>Search by location. Add both dates to see availability and stay totals.</p>
+      </div>
+      <form id="hotel-search" className="search-form" onSubmit={handleSubmit}>
         <div className="form-field">
           <label htmlFor="location">Location</label>
           <input
@@ -121,21 +137,24 @@ export default function HotelSearchPage() {
 
         <div className="form-actions">
           <button type="submit" disabled={loading}>{loading ? 'Searching…' : 'Search'}</button>
-          <button type="button" onClick={clearSearch}>Clear</button>
+          <button className="button-secondary" type="button" onClick={clearSearch}>Clear</button>
         </div>
       </form>
+      </section>
 
       {error && <p className="error-message" role="alert">{error.message}</p>}
 
-      <section aria-labelledby="results-heading" aria-busy={loading}>
-        <h2 id="results-heading">Hotels</h2>
-        <p role="status">
-          {loading
-            ? 'Loading hotels…'
-            : error
-              ? 'Search could not be completed.'
-              : `${hotels.length} hotel${hotels.length === 1 ? '' : 's'} found.`}
-        </p>
+      <section className="results-section" aria-labelledby="results-heading" aria-busy={loading}>
+        <div className="section-heading">
+          <div><p className="eyebrow">Find your kind of getaway</p><h2 id="results-heading">Explore our hotels</h2></div>
+          <p role="status">
+            {loading
+              ? 'Loading hotels…'
+              : error
+                ? 'Search could not be completed.'
+                : `${hotels.length} hotel${hotels.length === 1 ? '' : 's'} found.`}
+          </p>
+        </div>
         {!loading && !error && hotels.length === 0 && (
           <p>No hotels match this location. Try another location or clear the search.</p>
         )}

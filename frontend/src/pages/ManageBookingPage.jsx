@@ -100,6 +100,7 @@ export default function ManageBookingPage() {
 
   return (
     <>
+      <p className="eyebrow">Your stay, your plans</p>
       <h1>Manage booking</h1>
       <p>Find your booking using its reference and the email address you booked with.</p>
       <form className="booking-form" onSubmit={findBooking}>
@@ -127,7 +128,7 @@ export default function ManageBookingPage() {
           {error.status === 404 ? 'No booking matches that reference and email.' : error.message}
         </p>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && <p className="success-message" role="status">{message}</p>}
 
       {booking && (
         <section className="booking-panel" aria-labelledby="managed-booking-heading">
@@ -145,7 +146,7 @@ export default function ManageBookingPage() {
             <dt>Total amount</dt><dd><strong>{formatMoney(booking.totalAmount)}</strong></dd>
             <dt>Change fees charged</dt><dd id="change-fee-total">{formatMoney(booking.changeFeeTotal)}</dd>
             <dt>Amount due</dt><dd id="amount-due"><strong>{formatMoney(booking.amountDue)}</strong></dd>
-            <dt>Status</dt><dd id="managed-booking-status">{booking.status}</dd>
+            <dt>Status</dt><dd id="managed-booking-status"><span className={`status-badge ${booking.status === 'CANCELLED' ? 'status-cancelled' : ''}`}>{booking.status}</span></dd>
             {booking.cancelledAt && <><dt>Cancelled at</dt><dd>{booking.cancelledAt.replace('T', ' ')}</dd></>}
           </dl>
           {booking.status === 'CANCELLED' ? (
@@ -153,8 +154,8 @@ export default function ManageBookingPage() {
           ) : (
             <>
               <div className="booking-actions">
-                <button type="button" disabled={busy} onClick={() => setDateChangeOpen(true)}>Change dates</button>
-                <button type="button" disabled={busy} onClick={cancelBooking}>
+                <button type="button" disabled={busy} aria-expanded={dateChangeOpen} onClick={() => setDateChangeOpen(true)}>Change dates</button>
+                <button className="button-danger" type="button" disabled={busy} onClick={cancelBooking}>
                   {operation === 'cancel' ? 'Cancelling…' : 'Cancel booking'}
                 </button>
               </div>

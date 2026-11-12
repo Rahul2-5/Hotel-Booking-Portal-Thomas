@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { apiRequest } from '../api.js';
 import BookingForm from '../components/BookingForm.jsx';
+import HotelImage from '../components/HotelImage.jsx';
 import { getTodayDateString } from '../utils/dates.js';
 import { formatMoney } from '../utils/money.js';
 
@@ -76,10 +77,12 @@ export default function HotelDetailsPage() {
 
   return (
     <>
-      <Link to="/">Back to hotel search</Link>
+      <Link className="back-link" to="/">Back to hotel search</Link>
+      {hotel && <p className="eyebrow">{hotel.location} · Your next stay</p>}
       <h1>{hotel ? hotel.name : 'Hotel details'}</h1>
+      {hotel && <HotelImage key={hotel.id} hotelId={hotel.id} className="detail-image" eager />}
 
-      <form className="search-form" onSubmit={updateDates}>
+      <form className="search-form details-search" aria-label="Check room availability" onSubmit={updateDates}>
         <div className="form-field">
           <label htmlFor="details-checkIn">Check-in</label>
           <input id="details-checkIn" name="checkIn" type="date" min={today}
@@ -107,15 +110,18 @@ export default function HotelDetailsPage() {
 
       {hotel && !loading && (
         <>
-          <p><strong>Location:</strong> {hotel.location}</p>
+          <div className="hotel-overview">
+          <h2>A little about your stay</h2>
           {hotel.description && <p>{hotel.description}</p>}
           <ul className="amenities" aria-label="Amenities">
             {hotel.amenities.map((amenity) => <li key={amenity}>{amenity}</li>)}
           </ul>
+          </div>
           {hotel.nights === null && <p>Choose both dates above to see availability and book a room.</p>}
 
-          <section aria-labelledby="rooms-heading">
-            <h2 id="rooms-heading">Rooms</h2>
+          <section className="rooms-section" aria-labelledby="rooms-heading">
+            <p className="eyebrow">Make yourself at home</p>
+            <h2 id="rooms-heading">Choose your room</h2>
             {hotel.roomTypes.map((room) => (
               <article className="hotel-card" key={room.id}>
                 <h3>{room.name}</h3>

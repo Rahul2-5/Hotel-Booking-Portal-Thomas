@@ -98,7 +98,7 @@ export default function DateChangeForm({ booking, onUpdated, onBusyChange, onClo
           )}
         </>
       )}
-      <p><button type="button" disabled={busy} onClick={onClose}>Close date change</button></p>
+      <p className="booking-actions"><button className="button-secondary" type="button" disabled={busy} onClick={onClose}>Close date change</button></p>
     </section>
   );
 }

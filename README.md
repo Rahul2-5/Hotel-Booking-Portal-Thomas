@@ -90,7 +90,9 @@ For this demo, guests retrieve bookings with the booking reference and the email
 
 ### Challenges faced and how they were addressed
 
-The main issue was that **two guests** were trying to book the last room. To fix this, there was a @Transactional service method to book the room. The first step was to lock the row in the room_type table using SELECT ... FOR UPDATE. Then, we count how many overlapping confirmed bookings there are and insert. This means that any other requests that are trying to book the same room_type will get locked and have to wait. Once they read the data again they will see that there is a 409 SOLD_OUT. Since this method needs to be public and called from the controller, it needs to be called from a different Spring bean. If it were called from within the same class then it would not go through the proxy, therefore the transaction/lock would not happen.
+**Simultaneous bookings**
+
+The main issue was **two guests trying to book the last room at the same time**. To fix this, booking runs in a single `@Transactional` service method. The first step is to lock the row in the `room_type` table using `SELECT ... FOR UPDATE`. Then it counts the overlapping confirmed bookings and inserts. Any other request trying to book the same room type is blocked and has to wait. When it reads the data again, it sees no room is free and gets `409 SOLD_OUT`. Since this method needs to be public and called from the controller, it needs to be called from a different Spring bean. If it were called from within the same class then it would not go through the proxy, therefore the transaction/lock would not happen.
 
 **Date issues**
 
@@ -98,17 +100,17 @@ On the frontend my first thought was to convert the date input to a JS Date obje
 
 **Booking blocking date changes**
 
-When implementing the date change feature, whenever someone tried to extend their one room stay by one night they would always be denied. This is because the new dates overlap with the current dates of the booking. Therefore, it was seeing itself as a conflicting booking. The availability query that is run when changing dates includes the booking id which means it is not counted as it is already held by the guest.
+When implementing the date change feature, whenever someone tried to extend their one room stay by one night they would always be denied. This is because the new dates overlap with the current dates of the booking. Therefore, it was seeing itself as a conflicting booking. The availability query used for date changes excludes the booking's own id, so the room the guest already holds is not counted as a conflict.
 
-Schema validation
+**Schema validation**
 
-Hibernate is set to validate mode and this means that if there are any small discrepancies between the schema and the code it will fail. The status column was an ENUM and the hotel_amenity table had a composite primary key. Both required explicit mapping. I left it on validate mode so that the application will never make any unexpected changes to the tables..
+Hibernate is set to validate mode and this means that if there are any small discrepancies between the schema and the code it will fail. The status column was an ENUM and the hotel_amenity table had a composite primary key. Both required explicit mapping. I left it on validate mode so that the application will never make any unexpected changes to the tables.
 
 ### Additional enhancements or improvements with more time
 
 **Confirmation emails.** The reference is only shown on screen. Sending it by email on booking, date change and cancellation would make the lookup flow realistic, and a one-time link would be a better identity check than reference plus email — which today also travels in the URL of the two `GET` booking endpoints and so can appear in server logs.
 
-**Flexible dates assistance:** Customer says “cheapest nearby weekend”. Backend finds all possible windows. Model just sorts and describes windows. Extends date changing capability . Can be added to date feature
+**Flexible dates assistance:** Customer says “cheapest nearby weekend”. Backend finds all possible windows. Model just sorts and describes windows. This extends the date-change feature.
 
 
 ## Surprise element: change booking dates without cancelling
@@ -123,7 +125,7 @@ Once they have clicked confirm their booking will be updated however the booking
 
 ### 2. Why I chose it
 
-However, if changes are made to the plan, if we just have the basic functionality and need to change the dates of a guest, there are issues. If they cancel their booking and re-book they could lose their room completely as by the time they have cancelled, someone may have booked the new dates or the room could be full. They also lose the rate they had agreed on as they will have to pay today’s price to book. Finally, they have a different reference.
+Plans change. With only basic booking and cancellation, a guest who needs different dates has to cancel and rebook, and that causes problems. If they cancel their booking and re-book they could lose their room completely as by the time they have cancelled, someone may have booked the new dates or the room could be full. They also lose the rate they had agreed on as they will have to pay today’s price to book. Finally, they have a different reference.
 
 Changing the date of a booking solves an actual issue. It is a small task which can be completed fully. We can also use our existing logic from availability and blocking.
 
@@ -276,4 +278,4 @@ The cancelled demo booking; its room is available again.
 
 ![Cancelled booking](docs/screenshots/07-cancelled-booking.png)
 
-Approximate time spent: **13 hours** <!-- TODO: fill in before submitting -->
+Approximate time spent: **13 hours**

@@ -90,13 +90,19 @@ For this demo, guests retrieve bookings with the booking reference and the email
 
 ### Challenges faced and how they were addressed
 
-**Two guests booking the last room.** This was the main one. The booking method is a single `@Transactional` service method whose first action locks the `room_type` row with `SELECT ... FOR UPDATE`. It then counts overlapping confirmed bookings and inserts, all while holding the lock, so a second request for the same room type waits, re-reads committed data, and correctly gets `409 SOLD_OUT`. The method has to be `public` and called from the controller — a different Spring bean — because calling it from inside the same class would bypass the proxy and silently skip the transaction and the lock. The server also calculates the total itself from the stored room price and stay length, so it never trusts an amount sent by the browser.
+The main issue was that **two guests** were trying to book the last room. To fix this, there was a @Transactional service method to book the room. The first step was to lock the row in the room_type table using SELECT ... FOR UPDATE. Then, we count how many overlapping confirmed bookings there are and insert. This means that any other requests that are trying to book the same room_type will get locked and have to wait. Once they read the data again they will see that there is a 409 SOLD_OUT. Since this method needs to be public and called from the controller, it needs to be called from a different Spring bean. If it were called from within the same class then it would not go through the proxy, therefore the transaction/lock would not happen.
 
-**Dates shifting by a day.** My first instinct on the frontend was to turn the date input's value into a JavaScript `Date`. In India (UTC+5:30) converting through UTC moves the date back a day, so a stay could be sent to the API starting the day before the guest chose. I fixed it by treating dates as plain `YYYY-MM-DD` strings end to end and never constructing a `Date` for anything sent to the API. The one helper that does date arithmetic (the check-out input's minimum) works on year/month/day parts in local time, and it has unit tests covering month ends, year ends and leap years.
+**Date issues**
 
-**A booking blocking its own date change.** When I added the date-change feature, extending a one-room stay by a night was always refused. The new dates overlap the booking's own current dates, so it was counting itself as a competing booking. The availability query used by a date change takes the booking's id and excludes that row, since the guest already holds the room.
+On the frontend my first thought was to convert the date input to a JS Date object. However, when converting to UTC (India = UTC+5:30) the date would be one day earlier. This meant that when extending a one room stay by one night, the date sent to the API would be the day before. To fix this, the date was kept as a string (YYYY-MM-DD) throughout the application. There is only one date helper and it does not create any Date objects. This helper is used for the check-out input min. It uses the year, month and day parts of the date in local time. There are unit tests for when the dates fall on the end of months, years and leap years.
 
-**Schema validation at startup.** Because Hibernate runs in `validate` mode against a hand-written schema, small mismatches stop the application rather than being silently patched. The `status` ENUM column and the composite primary key on `hotel_amenity` both needed the mapping to be written explicitly. I kept `validate` rather than switching to `update`, so the application can never alter the tables by surprise.
+**Booking blocking date changes**
+
+When implementing the date change feature, whenever someone tried to extend their one room stay by one night they would always be denied. This is because the new dates overlap with the current dates of the booking. Therefore, it was seeing itself as a conflicting booking. The availability query that is run when changing dates includes the booking id which means it is not counted as it is already held by the guest.
+
+Schema validation
+
+Hibernate is set to validate mode and this means that if there are any small discrepancies between the schema and the code it will fail. The status column was an ENUM and the hotel_amenity table had a composite primary key. Both required explicit mapping. I left it on validate mode so that the application will never make any unexpected changes to the tables..
 
 ### Additional enhancements or improvements with more time
 
